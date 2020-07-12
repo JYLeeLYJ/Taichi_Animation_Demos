@@ -22,6 +22,7 @@ fix_radius[None] = 2
 dr[None] = 0.001
 ds[None] = 0.01
 
+# camdis = 8
 
 @ti.func
 def plane(pos):
@@ -173,7 +174,7 @@ def cal_look_at_mat(ro , ta , roll) :
         [uu[2] , vv[2] , ww[2]] )
 
 @ti.func
-def main_image(t , i , j):
+def main_image(t , i , j ):
     fragcoord = ts.vec(i,j)
     xy = (fragcoord - iResolution / 2.0) / max(iResolution[0] , iResolution[1])
     campos = ts.vec(camdis[None] * ts.cos(t / 5.0) , camdis * 0.5 , camdis[None] * ts.sin(t/5.0))
@@ -184,7 +185,7 @@ def main_image(t , i , j):
     return ti.pow(render_ray(campos , camdir) , ts.vec(1.0/2.2 , 1.0/2.2 , 1.0 /2.2))
 
 @ti.kernel
-def paint(t : ti.f32):
+def paint(t : ti.f32 ):
     global dr , ds
 
     scale[None] += ds[None]
@@ -208,9 +209,18 @@ def main(export):
     rng = range (50) if export == True else range(10000000)
 
     for ts in rng :
+
+        while gui.get_event(ti.GUI.MOTION):
+            if gui.event.key == ti.GUI.WHEEL:
+                if gui.event.delta[1] > 0 :
+                    camdis[None] = max (camdis[None] - 0.5 , 4)
+                elif gui.event.delta[1] < 0 :
+                    camdis[None] += 0.5
+
         paint(ts)
         gui.set_image(pixels)
 
+        gui.text(f"t:{ts}" ,(0.02,0.99),color = 0x000000)
         gui.text(f"scale:{scale[None]:.2}" , (0.02 , 0.95) , color=0x000000)
         gui.text(f"min_r:{min_radius[None]:.2}",(0.02,0.90) , color=0x000000)
         gui.text(f"fix_r:{fix_radius[None]:.2}",(0.02,0.85) , color=0x000000)
