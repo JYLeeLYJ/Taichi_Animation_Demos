@@ -4,7 +4,7 @@ import numpy as np
 ti.init(arch=ti.gpu)
 
 #resolution
-res = 500
+res = 600
 
 color = (np.random.rand(3) * 0.7) + 0.3
 
@@ -16,41 +16,10 @@ class Pair :
     def swap(self):
         self.curr , self.next = self.next , self.curr
 
-# see taichi/example/stable_fluid.py
-class MouseDataGen(object):
-    def __init__(self):
-        self.prev_mouse = None
-        self.prev_color = None
-
-    def __call__(self, gui):
-        # [0:2]: normalized delta direction
-        # [2:4]: currrent mouse xy
-        # [4:7]: color
-        mouse_data = np.array([0] * 8, dtype=np.float32)
-        if gui.is_pressed(ti.GUI.LMB):
-            x , y = gui.get_cursor_pos()
-            mxy = np.array([x,y], dtype=np.float32) * res
-            if self.prev_mouse is None:
-                self.prev_mouse = mxy
-                # Set lower bound to 0.3 to prevent too dark colors
-                self.prev_color = color
-            else:
-                mdir = mxy - self.prev_mouse
-                mdir = mdir / (np.linalg.norm(mdir) + 1e-5)
-                mouse_data[0], mouse_data[1] = mdir[0], mdir[1]
-                mouse_data[2], mouse_data[3] = mxy[0], mxy[1]
-                mouse_data[4:7] = self.prev_color
-                self.prev_mouse = mxy
-        else:
-            self.prev_mouse = None
-            self.prev_color = None
-        return mouse_data
-
 @ti.data_oriented
-class Fluid_Solver:
+class Smoke_Solver2D:
 
     def __init__(self):
-
         ### physical grid
         # pressure field
         self._pressure_curr = ti.var(dt = ti.f32 , shape=(res , res))
@@ -60,12 +29,19 @@ class Fluid_Solver:
         self._velocity_next = ti.Vector(2, dt=ti.f32 , shape=(res , res))
         # velocity divergence field
         self.velocity_div = ti.var(dt=ti.f32 , shape=(res , res))
-
         # dyeing field
         self._dye_curr = ti.Vector(3, dt=ti.f32 , shape=(res , res))
         self._dye_next = ti.Vector(3, dt=ti.f32 , shape=(res , res))
+
         # color buff
         self.color = ti.Vector(3, dt=ti.f32 , shape=(res , res))
+        # dye color
+        self.dcolor = ti.Vector(list(np.random.rand(3) * 0.7 + 0.3) )
+        # smoke source
+        self.source_x = res / 2
+        self.source_y = 0
+        # emit direction
+        self.direction = ti.Vector([0.0 , 1.0])
 
         ### constant physical value
         # time step / delta t
@@ -73,26 +49,27 @@ class Fluid_Solver:
         # delta x
         self.dx = 1.0
         # dyeing brightness decay
-        self.dye_decay = 0.99
+        self.dye_decay = 0.98
         # force
         self.f_strength = 10000.0
-        # dye color
-        self.dcolor = ti.Vector(list(np.random.rand(3) * 0.7 + 0.3) )
+
         
         ### solver param
         # RK-order
-        self.RK = 1
+        self.RK = 3
         # use_BFECC
         # self.use_BFECC = False
         # linear solver scheme
         self.use_MGPCG = False # false then use jacobi
         # rendering option
-        self.use_dye = False # false then render vel_div field
+        self.use_dye = True # false then render vel_div field
 
         ### swap pair
         self.velocity = Pair(self._velocity_curr , self._velocity_next)
         self.pressure = Pair(self._pressure_curr , self._pressure_next)
         self.dyeing   = Pair(self._dye_curr , self._dye_next)
+
+    ### ================ Advection ===========================
 
     @ti.func    
     def lerp(self , v1 , v2 , frac):
@@ -148,28 +125,23 @@ class Fluid_Solver:
     # def BFECC(self):
     #    pass
 
+    ### ================ External Force Effect ===========================
+
     @ti.kernel
-    def add_impluse(self , vf : ti.template() , dyef : ti.template() , data : ti.ext_arr()):
+    def external_force(self , vf : ti.template()):
         f_strenght_dt = ti.static(self.f_strength * self.dt)
         force_r = ti.static(res / 3.0)
         inv_force_r = ti.static (1.0 / force_r)
-        inv_dye_denom = ti.static(4.0 / (res / 15.0)**2)
+        sx , sy = ti.static( self.source_x , self.source_y )
 
         for i , j in vf :
-            dx , dy = i + 0.5 - data[2] , j + 0.5 - data[3] 
-            mdir = ti.Vector([data[0] , data[1]])
-            # mdir = ti.Vector([1,1]).normalized()
+            dx , dy = i + 0.5 - sx , j + 0.5 - sy
             d2 = dx * dx + dy * dy
-            momentum = mdir * f_strenght_dt * ti.exp( -d2 * inv_force_r)
+            momentum = self.direction * f_strenght_dt * ti.exp( -d2 * inv_force_r)
             v = vf[i,j]
             vf[i,j] = v + momentum
 
-            if ti.static(self.use_dye) :
-                dc = dyef[i,j]
-                if mdir.norm() > 0.5 :
-                    dc += ti.exp(-d2 * inv_dye_denom ) * self.dcolor
-                dc *= self.dye_decay
-                dyef[i,j] = dc
+    ### ================ Projection ===========================
 
     @ti.func
     def divergence_vel(self , field):
@@ -218,6 +190,8 @@ class Fluid_Solver:
         # TODO
         return 
 
+    ### ================ Rendering ===========================
+
     @ti.kernel
     def update_v(self , vf : ti.template() , pf : ti.template()):
         half_inv_dx = ti.static( 0.5 / self.dx )
@@ -226,9 +200,20 @@ class Fluid_Solver:
             pr = self.sample(pf, i + 1, j)
             pb = self.sample(pf, i, j - 1)
             pt = self.sample(pf, i, j + 1)
-            vf[i, j] = self.sample(vf, i, j)  - half_inv_dx * ti.Vector([pr - pl, pt - pb])
+            vf[i, j] = self.sample(vf, i, j) - half_inv_dx * ti.Vector([pr - pl, pt - pb])
 
-    # see taichi/example/stable_fluid.py
+    @ti.kernel
+    def update_dye(self , dyef : ti.template()):
+        inv_dye_denom = ti.static(4.0 / (res / 15.0)**2)
+        sx , sy = ti.static(self.source_x , self.source_y)
+        for i , j in dyef :
+            dx , dy = i + 0.5 - sx , j + 0.5 - sy
+            d2 = dx * dx + dy * dy
+            dc = dyef[i,j]
+            dc += ti.exp(-d2 * inv_dye_denom ) * self.dcolor
+            dc *= self.dye_decay
+            dyef[i,j] = dc
+    
     @ti.func
     def render_vel_div(self):
         sf = ti.static(self.velocity_div)
@@ -250,22 +235,27 @@ class Fluid_Solver:
         else :
             self.render_vel_div()
 
-
-    def step(self , mouse_data):
+    # For each solving step
+    def step(self):
         # caculate advection for velocity field and pressure field
         if self.use_dye :
+            self.advection(self.velocity.curr , self.velocity.curr , self.velocity.next)
             self.advection(self.velocity.curr , self.dyeing.curr , self.dyeing.next)
-        self.advection(self.velocity.curr , self.velocity.curr , self.velocity.next)
+        else :
+            self.advection(self.velocity.curr , self.velocity.curr , self.velocity.next)
+        
         self.velocity.swap()
         self.dyeing.swap()
 
         # external force
-        self.add_impluse(self.velocity.curr , self.dyeing.curr , mouse_data )
+        self.external_force(self.velocity.curr )
         # projection
         self.projection(self.velocity.curr , self.pressure ) 
-        # self.pressure.swap()
         # update velocity field
         self.update_v(self.velocity.curr , self.pressure.curr)
+        # update dyeing field
+        if self.use_dye:
+            self.update_dye(self.dyeing.curr)
 
     def reset(self):
         self.velocity.curr.fill([0,0])
@@ -274,21 +264,18 @@ class Fluid_Solver:
         self.color.fill([0,0,0])
 
 def main(gui):
-    fls = Fluid_Solver()
-    fls.reset()
-    gen_mouse_data = MouseDataGen()
+    smk = Smoke_Solver2D()
+    smk.reset()
     while gui.running :
-        gui.get_event(ti.GUI.PRESS)
-        # event processing
-        data = gen_mouse_data(gui)
+        # gui.get_event(ti.GUI.PRESS)
         # solve
-        fls.step(data)
+        smk.step()
         # rendering
-        fls.render()
+        smk.render()
         # display
-        gui.set_image(fls.color)
+        gui.set_image(smk.color)
         gui.show()
             
 if __name__ == "__main__":
-    gui = ti.GUI("Eular Fluid Solver" , res= res)
+    gui = ti.GUI("Smoke Simulation" , res= res)
     main(gui)
