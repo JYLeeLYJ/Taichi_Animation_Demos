@@ -7,7 +7,6 @@ ti.init(arch=ti.gpu , kernel_profiler = True)
 #resolution
 resolution = 512
 ti.Matrix
-color = (np.random.rand(3) * 0.7) + 0.3
 
 @ti.data_oriented
 class Pair :
@@ -39,8 +38,8 @@ class Smoke_Solver2D:
             dim = ti.static(len(x.shape))
             for i in ti.static(range(dim)):
                 offset = ti.Vector.unit(dim, i)
-                # ret += self.sample(x , I + offset) + self.sample(x , I - offset)
-                ret+= x[I + offset] + x[I - offset]
+                ret += self.sample(x , I + offset) + self.sample(x , I - offset)
+                # ret+= x[I + offset] + x[I - offset]
             return ret
 
         @ti.func
@@ -105,7 +104,7 @@ class Smoke_Solver2D:
 
         ### Linear solver setting 
         if ti.static(self.use_MGPCG) :
-            self.pcg = PCG_Solver(n = res // 2 , dim = 2 , max_iter = 20 ,preconditioner = PreConditioner.MultiG)
+            self.pcg = PCG_Solver(n = res // 2 , dim = 2 , max_iter = 20 ,preconditioner = PreConditioner.NonePC)
             self.pcg.set_A(Smoke_Solver2D.MatA())
         
         self.jacobi_max_iter = 30
@@ -235,6 +234,7 @@ class Smoke_Solver2D:
             p_nxt[i,j] = 0.25 *  (pl + pr + pt + pb - dx_sqr * self.velocity_div[i,j]) 
     
     def MGPCG(self, p):
+        # set p.curr as x0 , at the beginning of CG iteration
         self.pcg.solve(self.velocity_div , p.curr)
         p.curr.copy_from(self.pcg.x)
         return 
@@ -264,7 +264,7 @@ class Smoke_Solver2D:
             dc = dyef[i,j]
             dc += ti.exp(-d2 * inv_dye_denom ) * self.dcolor
             dc *= self.dye_decay
-            dyef[i,j] = min (dc , w)
+            dyef[i,j] = min (dc , self.dcolor)
     
     @ti.func
     def render_vel_div(self):
@@ -316,9 +316,28 @@ class Smoke_Solver2D:
         self.dyeing.curr.fill([0,0,0])
         self.color.fill([0,0,0])
 
+
+def Smoke_Solver_With_Jocabi():
+    return Smoke_Solver2D(res = resolution )
+
+def Smoke_Solver_With_PCG():
+    return Smoke_Solver2D(res = resolution , use_mgpcg= True)
+
+def Smoke_Solver_With_Jocabi_iter(max_iter):
+    smk = Smoke_Solver_With_Jocabi()
+    smk.jacobi_max_iter = max_iter
+    return smk
+
+def Smoke_Solver_With_MGPCG():
+    smk = Smoke_Solver_With_PCG()
+    smk.pcg.preconditioner = PreConditioner.MultiG
+    return smk
+
 def main(gui):
-    # smk = Smoke_Solver2D(res = resolution)
-    smk = Smoke_Solver2D(res = resolution , use_mgpcg= True)
+    # smk = Smoke_Solver_With_Jocabi()
+    # smk = Smoke_Solver_With_Jocabi_iter(300)
+    smk = Smoke_Solver_With_PCG()
+    # smk = Smoke_Solver_With_MGPCG()
     smk.reset()
     while gui.running :
         # gui.get_event(ti.GUI.PRESS)

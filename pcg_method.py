@@ -67,18 +67,18 @@ class PCG_Solver:
     #             self.z[0][I] = 0.0
     #             self.Ap[I] = 0.0
     #             self.p[I] = 0.0
-    #             self.x[I] = x0[I]
+    #             self.x[I] = 0.0
     def init(self , x0 :ti.template()):
         for I in ti.grouped(x0):
             self.x[I] = x0[I]
 
-    @ti.func
-    def sample(self , m , I):
-        dim = ti.static(len(m.shape))
-        index = list((0,)*dim )
-        for i in ti.static(range(dim)):
-            index[i] = max(0, min(m.shape[i] - 1, int(I[i])))
-        return m[index]
+    # @ti.func
+    # def sample(self , m , I):
+    #     dim = ti.static(len(m.shape))
+    #     index = list((0,)*dim )
+    #     for i in ti.static(range(dim)):
+    #         index[i] = max(0, min(m.shape[i] - 1, int(I[i])))
+    #     return m[index]
 
     @ti.func
     def neighbor_sum(self, x , I):
@@ -95,10 +95,10 @@ class PCG_Solver:
         #     res[I] = self.neighbor_sum(v, I) - (2 * self.dim) * v[I]  
         self.A.multiply(v , res)
 
-    @ti.kernel
-    def compute_Ap(self):
-        for I in ti.grouped(self.Ap):
-            self.Ap[I] = self.neighbor_sum(self.p, I) - (2 * self.dim) * self.p[I]
+    # @ti.kernel
+    # def compute_Ap(self):
+    #     for I in ti.grouped(self.Ap):
+    #         self.Ap[I] = self.neighbor_sum(self.p, I) - (2 * self.dim) * self.p[I]
 
     @ti.kernel
     def sub(self , r : ti.template() , b:ti.template()):
@@ -187,7 +187,6 @@ class PCG_Solver:
         # self.init(r0 , x0)
 
         self.reduce(self.r[0], self.r[0])
-        
         initial_rTr = self.sum[None]
 
         # self.r = b - Ax = b    since self.x = 0
@@ -232,7 +231,7 @@ class PCG_Solver:
             self.update_p()
             old_zTr = new_zTr
 
-            print(f'residual={rTr}')
+            # print(f'residual={rTr}')
 
 ### ================== test PCG ==============================
 
