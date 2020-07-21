@@ -85,7 +85,7 @@ class Smoke_Solver2D:
         # dyeing brightness decay
         self.dye_decay = 0.98
         # force
-        self.f_strength = 10000.0
+        self.f_strength = 20000.0
 
         ### solver param
         # RK-order
@@ -321,7 +321,7 @@ class Smoke_Solver2D:
 class GIF_Maker:
 
     def __init__(self):
-        self.saving = False
+        self.saving_gif = False
         self.video_mng = ti.VideoManager("./fluid" , framerate=24)
         self.frame_cnt = 0
 
@@ -371,9 +371,9 @@ def Smoke_Solver_With_MGPCG():
 
 def main(gui):
     # smk = Smoke_Solver_With_Jocabi()
-    # smk = Smoke_Solver_With_Jocabi_iter(200)
+    smk = Smoke_Solver_With_Jocabi_iter(200)
     # smk = Smoke_Solver_With_PCG()
-    smk = Smoke_Solver_With_MGPCG()
+    # smk = Smoke_Solver_With_MGPCG()
     smk.reset()
 
     gif = GIF_Maker()

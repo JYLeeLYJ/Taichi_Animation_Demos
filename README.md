@@ -5,6 +5,6 @@
 
 ![](./gif/mandelbox_.gif)
 
-### **2.Eular View Fluid**
+### **2.Eulerian View Fluid**
 
 ![](./gif/jacobi_20_.gif) ![](./gif/jacobi_200_.gif) ![](./gif/MGPCG_.gif)
