@@ -1,5 +1,5 @@
 
-# My Taichi Example Demo Animations
+# My Taichi Example Animations
 
 ###  **1.Fractal** 
 
