@@ -119,7 +119,7 @@ class PCG_Solver:
 
     @ti.kernel
     def update_r(self):
-        for I in ti.grouped(self.p):
+        for I in ti.grouped(self.Ap):
             self.r[0][I] -= self.alpha[None] * self.Ap[I]
 
     @ti.kernel

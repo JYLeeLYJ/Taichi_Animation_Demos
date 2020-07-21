@@ -316,6 +316,42 @@ class Smoke_Solver2D:
         self.dyeing.curr.fill([0,0,0])
         self.color.fill([0,0,0])
 
+### ====================== GUI Display ===========================
+
+class GIF_Maker:
+
+    def __init__(self):
+        self.saving = False
+        self.video_mng = ti.VideoManager("./fluid" , framerate=24)
+        self.frame_cnt = 0
+
+    def change(self):
+        self.saving_gif = not self.saving_gif
+        self.frame_cnt = 0
+        if self.saving_gif :
+            print("starting making gif...")
+        else :
+            print("cancel .")
+            self.video_mng.clean_frames()
+
+    def set_img(self, img):
+        if not self.saving_gif :
+            return 
+
+        if self.frame_cnt < 72 :
+            self.video_mng.write_frame(img.to_numpy())
+            self.frame_cnt += 1
+        elif self.frame_cnt == 72 :
+            print("saving gif...")
+            self.video_mng.make_video(mp4 = False)
+            self.video_mng.clean_frames()
+            self.frame_cnt = 0
+            self.saving_gif = False
+
+            import os
+            import time
+            t = time.strftime("%m-%d_%H:%M:%S", time.localtime())
+            os.rename("./fluid/video.gif" , f"./fluid/{t}.gif ")
 
 def Smoke_Solver_With_Jocabi():
     return Smoke_Solver2D(res = resolution )
@@ -335,21 +371,28 @@ def Smoke_Solver_With_MGPCG():
 
 def main(gui):
     # smk = Smoke_Solver_With_Jocabi()
-    # smk = Smoke_Solver_With_Jocabi_iter(300)
-    smk = Smoke_Solver_With_PCG()
-    # smk = Smoke_Solver_With_MGPCG()
+    # smk = Smoke_Solver_With_Jocabi_iter(200)
+    # smk = Smoke_Solver_With_PCG()
+    smk = Smoke_Solver_With_MGPCG()
     smk.reset()
+
+    gif = GIF_Maker()
     while gui.running :
-        # gui.get_event(ti.GUI.PRESS)
+
+        if gui.get_event(ti.GUI.PRESS):
+            if gui.is_pressed(ti.GUI.SPACE) : 
+                gif.change()
+
         # solve
         smk.step()
         # rendering
         smk.render()
+
         # display
+        gif.set_img(smk.color)
         gui.set_image(smk.color)
         gui.show()
     
-
 if __name__ == "__main__":
     gui = ti.GUI("Smoke Simulation" , res= resolution)
     main(gui)
