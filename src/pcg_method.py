@@ -3,15 +3,15 @@ from enum import Enum
 import numpy as np
 
 class PreConditioner(Enum):
-    NonePC = 0
-    Jacobi = 1
-    MultiG = 2
+    Nothing = 0  
+    Jacobian = 1
+    MultiGrid = 2
 
 # multigrid preconditioned conjugate gradient method
 @ti.data_oriented
 class PCG_Solver:
 
-    def __init__(self , n , dim = 2 , max_iter = 400 , real = ti.f32 , preconditioner = PreConditioner.NonePC ):
+    def __init__(self , n , dim = 2 , max_iter = 400 , real = ti.f32 , preconditioner = PreConditioner.Nothing ):
 
         self.max_iter = max_iter
         assert isinstance(preconditioner , PreConditioner)
@@ -25,8 +25,8 @@ class PCG_Solver:
         self.bottom_smoothing = 50
         self.dim = dim
 
-        self.N_ext = self.N // 2  # number of ext cells set so that that total grid size is still power of 2
-        self.N_tot = 2 * self.N
+        self.N_ext = self.N // 4  # number of ext cells set so that that total grid size is still power of 2
+        self.N_tot = self.N
 
         # setup sparse simulation data arrays
         self.r = [ti.var(dt=real) for _ in range(self.n_mg_levels)]  # residual
@@ -154,9 +154,9 @@ class PCG_Solver:
             self.z[0][I] = self.r[0][I] * wi 
 
     def apply_preconditioner(self):
-        if self.preconditioner == PreConditioner.NonePC :
+        if self.preconditioner == PreConditioner.Nothing :
             self.z[0].copy_from(self.r[0])
-        elif self.preconditioner == PreConditioner.Jacobi :
+        elif self.preconditioner == PreConditioner.Jacobian :
             self.jacobi_precondition()
         else :
             self.z[0].fill(0)
@@ -285,7 +285,7 @@ def test_mgpcg():
 
     r0 = ti.var(dt = ti.f32 , shape = (256 , 256 , 256 ))
     x0 = ti.var(dt = ti.f32 , shape = (256 , 256 , 256 ))
-    solver = PCG_Solver(n = 128 , dim = 3 ,preconditioner=PreConditioner.MultiG)
+    solver = PCG_Solver(n = 256 , dim = 3 ,preconditioner=PreConditioner.MultiGrid)
     init(solver , r0 , x0)
     solver.set_A(MatA())
 

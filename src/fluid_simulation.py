@@ -104,7 +104,7 @@ class Smoke_Solver2D:
 
         ### Linear solver setting 
         if ti.static(self.use_MGPCG) :
-            self.pcg = PCG_Solver(n = res // 2 , dim = 2 , max_iter = 20 ,preconditioner = PreConditioner.NonePC)
+            self.pcg = PCG_Solver(n = res , dim = 2 , max_iter = 20 ,preconditioner = PreConditioner.Nothing)
             self.pcg.set_A(Smoke_Solver2D.MatA())
         
         self.jacobi_max_iter = 30
@@ -366,7 +366,7 @@ def Smoke_Solver_With_Jocabi_iter(max_iter):
 
 def Smoke_Solver_With_MGPCG():
     smk = Smoke_Solver_With_PCG()
-    smk.pcg.preconditioner = PreConditioner.MultiG
+    smk.pcg.preconditioner = PreConditioner.MultiGrid
     return smk
 
 def main(gui):
