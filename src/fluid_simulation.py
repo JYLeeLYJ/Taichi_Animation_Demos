@@ -85,7 +85,7 @@ class Smoke_Solver2D:
         # dyeing brightness decay
         self.dye_decay = 0.98
         # force
-        self.f_strength = 20000.0
+        self.f_strength = 2000.0
 
         ### solver param
         # RK-order
@@ -175,12 +175,13 @@ class Smoke_Solver2D:
         force_r = ti.static(self.res / 3.0)
         inv_force_r = ti.static (1.0 / force_r)
         sx , sy = ti.static( self.source_x , self.source_y )
+        f_gravity_dt = ti.static(9.8 * self.dt)
 
         # solve smoke source
         for i , j in vf :
             dx , dy = i + 0.5 - sx , j + 0.5 - sy
             d2 = dx * dx + dy * dy
-            momentum = self.direction * f_strenght_dt * ti.exp( -d2 * inv_force_r)
+            momentum = self.direction * f_strenght_dt * ti.exp( -d2 * inv_force_r) - f_gravity_dt
             v = vf[i,j]
             vf[i,j] = v + momentum
 
@@ -255,9 +256,8 @@ class Smoke_Solver2D:
     @ti.kernel
     # @ti.func
     def update_dye(self , dyef : ti.template()):
-        inv_dye_denom = ti.static(4.0 / (self.res / 15.0)**2)
+        inv_dye_denom = ti.static(4.0 / (self.res / 20.0)**2)
         sx , sy = ti.static(self.source_x , self.source_y)
-        w = ti.Vector([1.0,1.0,1.0])
         for i , j in dyef :
             dx , dy = i + 0.5 - sx , j + 0.5 - sy
             d2 = dx * dx + dy * dy
