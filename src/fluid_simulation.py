@@ -1,21 +1,11 @@
 import taichi as ti
 import numpy as np
 from pcg_method import PreConditioner , PCG_Solver
-
-ti.init(arch=ti.gpu , kernel_profiler = True)
+from utils.tools import Pair
 
 #resolution
 resolution = 512
-ti.Matrix
 
-@ti.data_oriented
-class Pair :
-    def __init__ (self , curr, next):
-        self.curr = curr
-        self.next = next
-    
-    def swap(self):
-        self.curr , self.next = self.next , self.curr
 
 @ti.data_oriented
 class Smoke_Solver2D:
@@ -394,6 +384,7 @@ def main(gui):
         gui.show()
     
 if __name__ == "__main__":
+    ti.init(arch=ti.gpu , kernel_profiler = True)
     gui = ti.GUI("Smoke Simulation" , res= resolution)
     main(gui)
     ti.kernel_profiler_print()
