@@ -89,7 +89,6 @@ class PCG_Solver:
             ret += x[I+offset] + x[I - offset]
         return ret
 
-    @ti.kernel
     def multiply_by_A(self , v : ti.template() , res : ti.template()):
         # for I in ti.grouped(ti.ndrange(*v.shape)):
         #     res[I] = self.neighbor_sum(v, I) - (2 * self.dim) * v[I]  
@@ -235,66 +234,66 @@ class PCG_Solver:
 
 ### ================== test PCG ==============================
 
-@ti.data_oriented
-class MatA :
+# @ti.data_oriented
+# class MatA :
     
-    def __init__(self):
-        pass
+#     def __init__(self):
+#         pass
 
-    @ti.func
-    def multiply(self, v, res) : 
-        d = ti.static(len(v.shape))
-        for I in ti.grouped(ti.ndrange(*v.shape)) :
-            res[I] = self.neighbor_sum(v, I) - (2 * d ) * v[I]  
+#     @ti.kernel
+#     def multiply(self, v : ti.template(), res : ti.template()) : 
+#         d = ti.static(len(v.shape))
+#         for I in ti.grouped(ti.ndrange(*v.shape)) :
+#             res[I] = self.neighbor_sum(v, I) - (2 * d ) * v[I]  
 
-    @ti.func
-    def neighbor_sum(self, x , I):
-        ret = 0.0
-        dim = ti.static(len(x.shape))
-        for i in ti.static(range(dim)):
-            offset = ti.Vector.unit(dim, i)
-            # ret += self.sample(x , I + offset) + self.sample(x , I - offset)
-            ret+= x[I + offset] + x[I - offset]
-        return ret
+#     @ti.func
+#     def neighbor_sum(self, x , I):
+#         ret = 0.0
+#         dim = ti.static(len(x.shape))
+#         for i in ti.static(range(dim)):
+#             offset = ti.Vector.unit(dim, i)
+#             # ret += self.sample(x , I + offset) + self.sample(x , I - offset)
+#             ret+= x[I + offset] + x[I - offset]
+#         return ret
 
-    @ti.func
-    def sample(self , m , I):
-        dim = ti.static(len(m.shape))
-        index = list((0,)*dim )
-        for i in ti.static(range(dim)):
-            index[i] = max(0, min(m.shape[i] - 1, int(I[i])))
-        return m[index]
+#     @ti.func
+#     def sample(self , m , I):
+#         dim = ti.static(len(m.shape))
+#         index = list((0,)*dim )
+#         for i in ti.static(range(dim)):
+#             index[i] = max(0, min(m.shape[i] - 1, int(I[i])))
+#         return m[index]
 
-@ti.kernel
-def init_r0(solver : ti.template() , r0 :ti.template()):
-    for I in ti.grouped(
-            ti.ndrange(*(
-                (solver.N_ext, solver.N_tot - solver.N_ext), ) * solver.dim)):
-        r0[I] = 1.0
-        for k in ti.static(range(solver.dim)):
-            r0[I] *= ti.sin(2.0 * np.pi * (I[k] - solver.N_ext) *
-                                    2.0 / solver.N_tot)
+# @ti.kernel
+# def init_r0(solver : ti.template() , r0 :ti.template()):
+#     for I in ti.grouped(
+#             ti.ndrange(*(
+#                 (solver.N_ext, solver.N_tot - solver.N_ext), ) * solver.dim)):
+#         r0[I] = 1.0
+#         for k in ti.static(range(solver.dim)):
+#             r0[I] *= ti.sin(2.0 * np.pi * (I[k] - solver.N_ext) *
+#                                     2.0 / solver.N_tot)
 
-def init(solver , r0 , x0):
-    r0.fill(0.0)
-    x0.fill(0.0)
-    init_r0(solver ,r0)
+# def init(solver , r0 , x0):
+#     r0.fill(0.0)
+#     x0.fill(0.0)
+#     init_r0(solver ,r0)
 
-def test_mgpcg():
-    import time
+# def test_mgpcg():
+#     import time
 
-    r0 = ti.var(dt = ti.f32 , shape = (256 , 256 , 256 ))
-    x0 = ti.var(dt = ti.f32 , shape = (256 , 256 , 256 ))
-    solver = PCG_Solver(n = 256 , dim = 3 ,preconditioner=PreConditioner.MultiGrid)
-    init(solver , r0 , x0)
-    solver.set_A(MatA())
+#     r0 = ti.var(dt = ti.f32 , shape = (256 , 256 , 256 ))
+#     x0 = ti.var(dt = ti.f32 , shape = (256 , 256 , 256 ))
+#     solver = PCG_Solver(n = 256 , dim = 3 ,preconditioner=PreConditioner.MultiGrid)
+#     init(solver , r0 , x0)
+#     solver.set_A(MatA())
 
-    t = time.time()
-    solver.solve(r0, x0)
-    print(f'Solver time: {time.time() - t:.3f} s')
+#     t = time.time()
+#     solver.solve(r0, x0)
+#     print(f'Solver time: {time.time() - t:.3f} s')
 
-if __name__ == "__main__":
-    ti.init(kernel_profiler = True)
-    test_mgpcg()
-    ti.kernel_profiler_print()
-    ti.core.print_stat()
+# if __name__ == "__main__":
+#     ti.init(kernel_profiler = True)
+#     test_mgpcg()
+#     ti.kernel_profiler_print()
+#     ti.core.print_stat()

@@ -16,8 +16,8 @@ class Smoke_Solver2D:
         def __init__(self):
             pass
 
-        @ti.func
-        def multiply(self, v, res) : 
+        @ti.kernel
+        def multiply(self, v : ti.template(), res : ti.template()) : 
             d = ti.static(len(v.shape))
             for I in ti.grouped(ti.ndrange(*v.shape)) :
                 res[I] = self.neighbor_sum(v, I) - (2 * d ) * v[I]  
