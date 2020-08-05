@@ -134,7 +134,7 @@ class Smoke_Solver2D:
             v1 = vf[u,v]
             p1 = p - 0.5 * dt * v1
             v2 = self.sample(vf , p1[0] , p1[1])
-            p2 = p - 0.75 * dt * v
+            p2 = p - 0.75 * dt * v1
             v3 = self.sample(vf , p2[0] , p2[1])
             p -= dt * ( 2/9 * v1 + 1/3 * v2 + 4/9 * v3 )
         else :
